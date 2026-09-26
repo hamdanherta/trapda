@@ -1,0 +1,3 @@
+@echo off
+echo 🚀 Starting Trapda Application (Laravel + Vite)...
+npx concurrently --kill-others -n "Laravel,Vite" -c "cyan,magenta" "php artisan serve" "npm run dev"
