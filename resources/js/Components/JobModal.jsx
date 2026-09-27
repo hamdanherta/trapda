@@ -1,15 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from '@inertiajs/react';
-import { X, Briefcase, MapPin, Building, Calendar, CheckCircle, Tag, Send, Users, CheckCircle2, XCircle, AlertTriangle, Building2, Laptop } from 'lucide-react';
+import { X, Briefcase, MapPin, Building, Calendar, CheckCircle, Tag, Send, Users, CheckCircle2, XCircle, AlertTriangle, Building2, Laptop, Globe } from 'lucide-react';
 import { translations, translateData } from '../Utils/translations';
 
-// ─── Palet warna status ────────────────────────────────────────────────────────
-// Dikirim           → #007FD3
-// Wawancara         → #DAA000
-// Diterima          → #4CBE00
-// Ditolak           → #D70000
-// (Wawancara) Ditolak → #700000
-// ──────────────────────────────────────────────────────────────────────────────
+const PRESET_PLATFORMS = ['Email', 'Glints', 'Jobstreet', 'Indeed', 'GForm'];
 
 export default function JobModal({ isOpen, onClose, application = null, onSuccess, onError, lang = 'id' }) {
     const t = translations[lang] || translations.id;
@@ -23,11 +17,14 @@ export default function JobModal({ isOpen, onClose, application = null, onSucces
         return `${year}-${month}-${day}`;
     };
 
+    const [isCustomPlatform, setIsCustomPlatform] = useState(false);
+
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         position_name: '',
         company_name:  '',
         location:      '',
         work_type:     'Onsite (WFO)',
+        platform:      'Email',
         status:        'Dikirim',
         applied_at:    getCurrentLocalDate(),
     });
@@ -46,20 +43,27 @@ export default function JobModal({ isOpen, onClose, application = null, onSucces
                         formattedAppliedAt = `${yr}-${mo}-${da}`;
                     }
                 }
+                const appPlatform = application.platform || 'Email';
+                const isPreset = PRESET_PLATFORMS.includes(appPlatform);
+                setIsCustomPlatform(!isPreset);
+
                 setData({
                     position_name: application.position_name || '',
                     company_name:  application.company_name  || '',
                     location:      application.location      || '',
                     work_type:     application.work_type     || 'Onsite (WFO)',
+                    platform:      appPlatform,
                     status:        application.status        || 'Dikirim',
                     applied_at:    formattedAppliedAt,
                 });
             } else {
+                setIsCustomPlatform(false);
                 setData({
                     position_name: '',
                     company_name:  '',
                     location:      '',
                     work_type:     'Onsite (WFO)',
+                    platform:      'Email',
                     status:        'Dikirim',
                     applied_at:    getCurrentLocalDate(),
                 });
@@ -69,15 +73,56 @@ export default function JobModal({ isOpen, onClose, application = null, onSucces
 
     if (!isOpen) return null;
 
+    const handleWorkTypeChange = (wtId) => {
+        if (wtId === 'Offsite (Remote)') {
+            setData((prev) => ({
+                ...prev,
+                work_type: wtId,
+                location: 'Remote',
+            }));
+        } else {
+            setData((prev) => ({
+                ...prev,
+                work_type: wtId,
+                location: prev.location === 'Remote' ? '' : prev.location,
+            }));
+        }
+    };
+
+    const handlePlatformSelect = (pName) => {
+        if (pName === 'Lainnya') {
+            setIsCustomPlatform(true);
+            setData('platform', '');
+        } else {
+            setIsCustomPlatform(false);
+            setData('platform', pName);
+        }
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
+
+        // Ensure location is set to Remote if Offsite (Remote)
+        let finalLocation = data.location;
+        if (data.work_type === 'Offsite (Remote)') {
+            finalLocation = 'Remote';
+        }
+
+        const payload = {
+            ...data,
+            location: finalLocation,
+            platform: data.platform || 'Email',
+        };
+
         if (isEdit) {
             put('/job-applications/' + application.id, {
+                data: payload,
                 onSuccess: () => { onClose(); onSuccess('Data lamaran kerja berhasil diperbarui!'); },
                 onError:   () => { onError('Gagal menyimpan data. Harap periksa kembali input formulir Anda.'); },
             });
         } else {
             post('/job-applications', {
+                data: payload,
                 onSuccess: () => { onClose(); reset(); onSuccess('Lamaran kerja baru berhasil ditambahkan!'); },
                 onError:   () => { onError('Gagal menambah lamaran. Harap periksa kembali input formulir Anda.'); },
             });
@@ -126,6 +171,8 @@ export default function JobModal({ isOpen, onClose, application = null, onSucces
         { id: 'Onsite (WFO)', label: translateData('Onsite (WFO)', lang), icon: Building2 },
         { id: 'Offsite (Remote)', label: translateData('Offsite (Remote)', lang), icon: Laptop },
     ];
+
+    const isOffsiteRemote = data.work_type === 'Offsite (Remote)';
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#005BAB]/50 backdrop-blur-xs animate-fade-in overflow-y-auto">
@@ -208,7 +255,7 @@ export default function JobModal({ isOpen, onClose, application = null, onSucces
                                         <button
                                             key={wtOpt.id}
                                             type="button"
-                                            onClick={() => setData('work_type', wtOpt.id)}
+                                            onClick={() => handleWorkTypeChange(wtOpt.id)}
                                             className={`py-2 px-3 border-2 rounded-xl text-xs font-extrabold flex items-center justify-center space-x-1.5 transition-all ${
                                                 isSelected
                                                     ? 'bg-[#005BAB] text-[#FFFFFF] border-[#005BAB] shadow-sm'
@@ -224,29 +271,31 @@ export default function JobModal({ isOpen, onClose, application = null, onSucces
                             {errors.work_type && <p className="mt-1 text-xs font-bold text-red-600">{errors.work_type}</p>}
                         </div>
 
-                        {/* 4. Lokasi */}
-                        <div>
-                            <label className="block text-xs font-extrabold text-[#005BAB] uppercase tracking-wider mb-1">
-                                {t.fieldLocation} <span className="text-[#005BAB]">*</span>
-                            </label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#005BAB]">
-                                    <MapPin className="w-4 h-4" />
+                        {/* REQUIREMENT 7: jika select jenis pekerjan Offsite(Remote), maka form Lokasi Hilang */}
+                        {!isOffsiteRemote && (
+                            <div>
+                                <label className="block text-xs font-extrabold text-[#005BAB] uppercase tracking-wider mb-1">
+                                    {t.fieldLocation} <span className="text-[#005BAB]">*</span>
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#005BAB]">
+                                        <MapPin className="w-4 h-4" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        required={!isOffsiteRemote}
+                                        value={data.location}
+                                        onChange={(e) => setData('location', e.target.value)}
+                                        placeholder={t.placeholderLocation}
+                                        className="w-full pl-10 pr-4 py-2.5 bg-trapda-cream border-2 border-[#005BAB] rounded-xl text-xs sm:text-sm font-bold text-[#005BAB] placeholder-[#005BAB]/40 focus:outline-none focus:ring-2 focus:ring-[#005BAB] transition-all"
+                                    />
                                 </div>
-                                <input
-                                    type="text"
-                                    required
-                                    value={data.location}
-                                    onChange={(e) => setData('location', e.target.value)}
-                                    placeholder={t.placeholderLocation}
-                                    className="w-full pl-10 pr-4 py-2.5 bg-trapda-cream border-2 border-[#005BAB] rounded-xl text-xs sm:text-sm font-bold text-[#005BAB] placeholder-[#005BAB]/40 focus:outline-none focus:ring-2 focus:ring-[#005BAB] transition-all"
-                                />
+                                {errors.location && <p className="mt-1 text-xs font-bold text-red-600">{errors.location}</p>}
                             </div>
-                            {errors.location && <p className="mt-1 text-xs font-bold text-red-600">{errors.location}</p>}
-                        </div>
+                        )}
 
-                        {/* 5. Tanggal Apply (pindah ke kanan agar sejajar) */}
-                        <div className="sm:col-span-2">
+                        {/* Tanggal Apply */}
+                        <div className={isOffsiteRemote ? "" : "sm:col-span-2"}>
                             <label className="block text-xs font-extrabold text-[#005BAB] uppercase tracking-wider mb-1">
                                 {t.fieldAppliedDate}
                             </label>
@@ -264,7 +313,67 @@ export default function JobModal({ isOpen, onClose, application = null, onSucces
                             {errors.applied_at && <p className="mt-1 text-xs font-bold text-red-600">{errors.applied_at}</p>}
                         </div>
 
-                        {/* 6. Status Sekarang (Full width 5 kolom horizontal) */}
+                        {/* REQUIREMENT 3: Field Platform (email, glints, jobstreet, indeed, gform, lainnya isi sendiri) */}
+                        <div className="sm:col-span-2">
+                            <label className="block text-xs font-extrabold text-[#005BAB] uppercase tracking-wider mb-1">
+                                {t.fieldPlatform} <span className="text-[#005BAB]">*</span>
+                            </label>
+
+                            {/* Preset Buttons */}
+                            <div className="flex flex-wrap gap-2 mb-2">
+                                {PRESET_PLATFORMS.map((pName) => {
+                                    const isSelected = !isCustomPlatform && data.platform === pName;
+                                    return (
+                                        <button
+                                            key={pName}
+                                            type="button"
+                                            onClick={() => handlePlatformSelect(pName)}
+                                            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border-2 transition-all flex items-center space-x-1 ${
+                                                isSelected
+                                                    ? 'bg-[#005BAB] text-[#FFFFFF] border-[#005BAB] shadow-xs'
+                                                    : 'bg-trapda-cream text-[#005BAB] border-[#005BAB]/40 hover:border-[#005BAB]'
+                                            }`}
+                                        >
+                                            <Globe className="w-3 h-3 flex-shrink-0" />
+                                            <span>{pName}</span>
+                                        </button>
+                                    );
+                                })}
+
+                                <button
+                                    type="button"
+                                    onClick={() => handlePlatformSelect('Lainnya')}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border-2 transition-all ${
+                                        isCustomPlatform
+                                            ? 'bg-[#005BAB] text-[#FFFFFF] border-[#005BAB] shadow-xs'
+                                            : 'bg-trapda-cream text-[#005BAB] border-[#005BAB]/40 hover:border-[#005BAB]'
+                                    }`}
+                                >
+                                    + Lainnya (Isi Sendiri)
+                                </button>
+                            </div>
+
+                            {/* Custom Input when 'Lainnya' selected */}
+                            {isCustomPlatform && (
+                                <div className="relative mt-2">
+                                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#005BAB]">
+                                        <Globe className="w-4 h-4" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        required
+                                        autoFocus
+                                        value={data.platform}
+                                        onChange={(e) => setData('platform', e.target.value)}
+                                        placeholder="Ketik nama platform (contoh: LinkedIn, Website Perusahaan, Kalibrr...)"
+                                        className="w-full pl-10 pr-4 py-2.5 bg-trapda-cream border-2 border-[#005BAB] rounded-xl text-xs sm:text-sm font-bold text-[#005BAB] placeholder-[#005BAB]/40 focus:outline-none focus:ring-2 focus:ring-[#005BAB] transition-all"
+                                    />
+                                </div>
+                            )}
+                            {errors.platform && <p className="mt-1 text-xs font-bold text-red-600">{errors.platform}</p>}
+                        </div>
+
+                        {/* Status Sekarang (Full width 5 kolom horizontal) */}
                         <div className="sm:col-span-2">
                             <label className="block text-xs font-extrabold text-[#005BAB] uppercase tracking-wider mb-1">
                                 {t.fieldStatus} <span className="text-[#005BAB]">*</span>
@@ -321,5 +430,3 @@ export default function JobModal({ isOpen, onClose, application = null, onSucces
         </div>
     );
 }
-
-

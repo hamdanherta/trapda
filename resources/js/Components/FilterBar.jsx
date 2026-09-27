@@ -1,9 +1,85 @@
-import React from 'react';
-import { Search, Filter, MapPin, Briefcase, ArrowUpDown, RefreshCw, Building2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Search, Filter, MapPin, Briefcase, ArrowUpDown, RefreshCw, Building2, Calendar, Globe, ChevronDown } from 'lucide-react';
 import { translations, translateData } from '../Utils/translations';
 
-export default function FilterBar({ filters, uniqueLocations, uniquePositions, onFilterChange, onReset, lang = 'id' }) {
+// Custom Scrollable Dropdown Select Component
+function CustomSelect({ icon: Icon, value, options, onChange, placeholder, minWidth = "min-w-[140px]" }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        function handleClickOutside(e) {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                setIsOpen(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const selectedOption = options.find(opt => String(opt.value) === String(value)) || options[0];
+
+    return (
+        <div ref={containerRef} className={`relative w-full md:w-auto ${minWidth}`}>
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full pl-9 pr-7 py-2.5 bg-trapda-cream border-2 border-[#005BAB] rounded-xl text-xs sm:text-sm font-bold text-[#005BAB] focus:outline-none focus:ring-2 focus:ring-[#005BAB] transition-all flex items-center justify-between text-left cursor-pointer truncate shadow-xs"
+            >
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#005BAB]">
+                    <Icon className="w-4 h-4" />
+                </div>
+                <span className="truncate">{selectedOption?.label || placeholder}</span>
+                <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-[#005BAB]">
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+                </div>
+            </button>
+
+            {isOpen && (
+                <div className="absolute left-0 right-0 mt-1 z-50 max-h-52 overflow-y-auto bg-trapda-white border-2 border-[#005BAB] rounded-2xl shadow-xl py-1 divide-y divide-[#FFF3DD] animate-fade-in min-w-[180px]">
+                    {options.map((opt) => {
+                        const isSelected = String(opt.value) === String(value);
+                        return (
+                            <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => {
+                                    onChange(opt.value);
+                                    setIsOpen(false);
+                                }}
+                                className={`w-full text-left px-3.5 py-2 text-xs font-bold transition-colors block break-words whitespace-normal leading-snug ${
+                                    isSelected
+                                        ? 'bg-[#005BAB] text-[#FFFFFF] font-extrabold'
+                                        : 'text-[#005BAB] hover:bg-trapda-cream'
+                                }`}
+                            >
+                                {opt.label}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
+export default function FilterBar({ filters, uniqueLocations = [], uniquePositions = [], uniquePlatforms = [], stats = {}, onFilterChange, onReset, lang = 'id' }) {
     const t = translations[lang] || translations.id;
+
+    const dateFilterOptions = [
+        { label: `${t.allDates} (${stats?.total_all ?? 0})`, value: '' },
+        { label: `${t.applyToday} (${stats?.total_today ?? 0})`, value: 'hari_ini' },
+        { label: `${t.applyThisWeek} (${stats?.total_this_week ?? 0})`, value: 'minggu_ini' },
+        { label: `${t.applyThisMonth} (${stats?.total_this_month ?? 0})`, value: 'bulan_ini' },
+    ];
+
+    const defaultPlatforms = ['Email', 'Glints', 'Jobstreet', 'Indeed', 'GForm'];
+    const mergedPlatforms = Array.from(new Set([...defaultPlatforms, ...uniquePlatforms])).filter(Boolean);
+
+    const platformOptions = [
+        { label: t.allPlatforms, value: '' },
+        ...mergedPlatforms.map(p => ({ label: p, value: p }))
+    ];
 
     const statusOptions = [
         { label: t.allStatus,                    value: '' },
@@ -18,6 +94,16 @@ export default function FilterBar({ filters, uniqueLocations, uniquePositions, o
         { label: t.allWorkTypes,                     value: '' },
         { label: translateData('Onsite (WFO)', lang),     value: 'Onsite (WFO)' },
         { label: translateData('Offsite (Remote)', lang), value: 'Offsite (Remote)' },
+    ];
+
+    const locationOptions = [
+        { label: t.allLocations, value: '' },
+        ...uniqueLocations.map(loc => ({ label: loc, value: loc }))
+    ];
+
+    const positionOptions = [
+        { label: t.allPositions, value: '' },
+        ...uniquePositions.map(pos => ({ label: pos, value: pos }))
     ];
 
     const sortOptions = [
@@ -37,12 +123,13 @@ export default function FilterBar({ filters, uniqueLocations, uniquePositions, o
                     </h3>
                 </div>
 
+                {/* REQUIREMENT: Tombol reset filter warna MERAH */}
                 <button
                     onClick={onReset}
                     type="button"
-                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-trapda-cream border-2 border-[#005BAB] rounded-xl text-xs font-extrabold text-[#005BAB] hover:bg-[#005BAB] hover:text-[#FFFFFF] transition-all active:scale-95 flex-shrink-0"
+                    className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#D70000] border-2 border-[#a80000] rounded-xl text-xs font-extrabold text-[#FFFFFF] hover:bg-[#a80000] transition-all active:scale-95 flex-shrink-0 shadow-xs"
                 >
-                    <RefreshCw className="w-3.5 h-3.5" />
+                    <RefreshCw className="w-3.5 h-3.5 text-[#FFFFFF]" />
                     <span>{t.resetFilter}</span>
                 </button>
             </div>
@@ -62,100 +149,76 @@ export default function FilterBar({ filters, uniqueLocations, uniquePositions, o
                     />
                 </div>
 
+                {/* Filter Waktu Apply */}
+                <CustomSelect
+                    icon={Calendar}
+                    value={filters.date_filter || ''}
+                    options={dateFilterOptions}
+                    onChange={(val) => onFilterChange('date_filter', val)}
+                    placeholder={t.allDates}
+                    minWidth="min-w-[170px]"
+                />
+
+                {/* Filter Platform */}
+                <CustomSelect
+                    icon={Globe}
+                    value={filters.platform || ''}
+                    options={platformOptions}
+                    onChange={(val) => onFilterChange('platform', val)}
+                    placeholder={t.allPlatforms}
+                    minWidth="min-w-[150px]"
+                />
+
                 {/* Filter Status */}
-                <div className="w-full md:w-auto min-w-[150px] relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#005BAB]">
-                        <Filter className="w-4 h-4" />
-                    </div>
-                    <select
-                        value={filters.status || ''}
-                        onChange={(e) => onFilterChange('status', e.target.value)}
-                        className="w-full pl-9 pr-7 py-2.5 bg-trapda-cream border-2 border-[#005BAB] rounded-xl text-xs sm:text-sm font-bold text-[#005BAB] focus:outline-none focus:ring-2 focus:ring-[#005BAB] transition-all appearance-none cursor-pointer text-ellipsis overflow-hidden"
-                    >
-                        {statusOptions.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                <CustomSelect
+                    icon={Filter}
+                    value={filters.status || ''}
+                    options={statusOptions}
+                    onChange={(val) => onFilterChange('status', val)}
+                    placeholder={t.allStatus}
+                    minWidth="min-w-[140px]"
+                />
 
                 {/* Filter Jenis Pekerjaan */}
-                <div className="w-full md:w-auto min-w-[170px] relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#005BAB]">
-                        <Building2 className="w-4 h-4" />
-                    </div>
-                    <select
-                        value={filters.work_type || ''}
-                        onChange={(e) => onFilterChange('work_type', e.target.value)}
-                        className="w-full pl-9 pr-7 py-2.5 bg-trapda-cream border-2 border-[#005BAB] rounded-xl text-xs sm:text-sm font-bold text-[#005BAB] focus:outline-none focus:ring-2 focus:ring-[#005BAB] transition-all appearance-none cursor-pointer text-ellipsis overflow-hidden"
-                    >
-                        {workTypeOptions.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                <CustomSelect
+                    icon={Building2}
+                    value={filters.work_type || ''}
+                    options={workTypeOptions}
+                    onChange={(val) => onFilterChange('work_type', val)}
+                    placeholder={t.allWorkTypes}
+                    minWidth="min-w-[160px]"
+                />
 
-                {/* Filter Lokasi */}
-                <div className="w-full md:w-auto min-w-[140px] relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#005BAB]">
-                        <MapPin className="w-4 h-4" />
-                    </div>
-                    <select
-                        value={filters.location || ''}
-                        onChange={(e) => onFilterChange('location', e.target.value)}
-                        className="w-full pl-9 pr-7 py-2.5 bg-trapda-cream border-2 border-[#005BAB] rounded-xl text-xs sm:text-sm font-bold text-[#005BAB] focus:outline-none focus:ring-2 focus:ring-[#005BAB] transition-all appearance-none cursor-pointer text-ellipsis overflow-hidden"
-                    >
-                        <option value="">{t.allLocations}</option>
-                        {uniqueLocations.map((loc) => (
-                            <option key={loc} value={loc}>
-                                {loc}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                {/* REQUIREMENT: Filter Lokasi (Scrollable max-h-52) */}
+                <CustomSelect
+                    icon={MapPin}
+                    value={filters.location || ''}
+                    options={locationOptions}
+                    onChange={(val) => onFilterChange('location', val)}
+                    placeholder={t.allLocations}
+                    minWidth="min-w-[140px]"
+                />
 
-                {/* Filter Posisi */}
-                <div className="w-full md:w-auto min-w-[140px] relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#005BAB]">
-                        <Briefcase className="w-4 h-4" />
-                    </div>
-                    <select
-                        value={filters.position || ''}
-                        onChange={(e) => onFilterChange('position', e.target.value)}
-                        className="w-full pl-9 pr-7 py-2.5 bg-trapda-cream border-2 border-[#005BAB] rounded-xl text-xs sm:text-sm font-bold text-[#005BAB] focus:outline-none focus:ring-2 focus:ring-[#005BAB] transition-all appearance-none cursor-pointer text-ellipsis overflow-hidden"
-                    >
-                        <option value="">{t.allPositions}</option>
-                        {uniquePositions.map((pos) => (
-                            <option key={pos} value={pos}>
-                                {pos}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                {/* REQUIREMENT: Filter Posisi (Scrollable max-h-52, tidak memanjang bawah) */}
+                <CustomSelect
+                    icon={Briefcase}
+                    value={filters.position || ''}
+                    options={positionOptions}
+                    onChange={(val) => onFilterChange('position', val)}
+                    placeholder={t.allPositions}
+                    minWidth="min-w-[140px]"
+                />
 
                 {/* Sort Order */}
-                <div className="w-full md:w-auto min-w-[130px] relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#005BAB]">
-                        <ArrowUpDown className="w-4 h-4" />
-                    </div>
-                    <select
-                        value={filters.sort || 'terbaru'}
-                        onChange={(e) => onFilterChange('sort', e.target.value)}
-                        className="w-full pl-9 pr-7 py-2.5 bg-trapda-cream border-2 border-[#005BAB] rounded-xl text-xs sm:text-sm font-bold text-[#005BAB] focus:outline-none focus:ring-2 focus:ring-[#005BAB] transition-all appearance-none cursor-pointer"
-                    >
-                        {sortOptions.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                <CustomSelect
+                    icon={ArrowUpDown}
+                    value={filters.sort || 'terbaru'}
+                    options={sortOptions}
+                    onChange={(val) => onFilterChange('sort', val)}
+                    placeholder={t.sortTerbaru}
+                    minWidth="min-w-[130px]"
+                />
             </div>
         </div>
     );
 }
-
-

@@ -16,6 +16,7 @@ class JobApplication extends Model
         'company_name',
         'location',
         'work_type',
+        'platform',
         'status',
         'applied_at',
         'ever_interviewed',

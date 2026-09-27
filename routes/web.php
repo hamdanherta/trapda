@@ -19,6 +19,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     Route::get('/dashboard', [JobApplicationController::class, 'index'])->name('dashboard');
+    Route::get('/job-applications/pdf', [JobApplicationController::class, 'downloadPdf'])->name('job-applications.pdf');
     Route::post('/job-applications', [JobApplicationController::class, 'store'])->name('job-applications.store');
     Route::put('/job-applications/{jobApplication}', [JobApplicationController::class, 'update'])->name('job-applications.update');
     Route::patch('/job-applications/{jobApplication}/status', [JobApplicationController::class, 'updateStatus'])->name('job-applications.update-status');

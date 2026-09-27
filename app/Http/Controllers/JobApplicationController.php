@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class JobApplicationController extends Controller
 {
@@ -35,14 +36,35 @@ class JobApplicationController extends Controller
         $totalSent              = $allUserApps->where('status', 'Dikirim')->count();
         $totalDitolak           = $allUserApps->where('status', 'Ditolak')->count();
         $totalWawancaraDitolak  = $allUserApps->where('status', '(Wawancara) Ditolak')->count();
-        // Total Ditolak gabungan (untuk referensi)
         $totalRejected          = $totalDitolak + $totalWawancaraDitolak;
         $totalEverInterviewed   = $allUserApps->where('ever_interviewed', true)->count();
+
+        // Computations for Apply Hari Ini, Minggu Ini, Bulan Ini
+        $today = Carbon::today();
+        $startOfWeek = Carbon::now()->startOfWeek();
+        $endOfWeek = Carbon::now()->endOfWeek();
+        $startOfMonth = Carbon::now()->startOfMonth();
+        $endOfMonth = Carbon::now()->endOfMonth();
+
+        $totalToday = $allUserApps->filter(function ($app) use ($today) {
+            return $app->applied_at && Carbon::parse($app->applied_at)->isSameDay($today);
+        })->count();
+
+        $totalThisWeek = $allUserApps->filter(function ($app) use ($startOfWeek, $endOfWeek) {
+            return $app->applied_at && Carbon::parse($app->applied_at)->between($startOfWeek, $endOfWeek);
+        })->count();
+
+        $totalThisMonth = $allUserApps->filter(function ($app) use ($startOfMonth, $endOfMonth) {
+            return $app->applied_at && Carbon::parse($app->applied_at)->between($startOfMonth, $endOfMonth);
+        })->count();
 
         $percentInterview = $totalAll > 0 ? round(($totalInterview / $totalAll) * 100, 1) : 0;
         $percentAccepted = $totalAll > 0 ? round(($totalAccepted / $totalAll) * 100, 1) : 0;
         $percentEverInterviewed = $totalAll > 0 ? round(($totalEverInterviewed / $totalAll) * 100, 1) : 0;
-        $winrate = $percentAccepted;
+        
+        // WinRate calculation excludes 'Dikirim' and 'Wawancara' (only decided applications)
+        $totalDecided = $totalAccepted + $totalDitolak + $totalWawancaraDitolak;
+        $winrate = $totalDecided > 0 ? round(($totalAccepted / $totalDecided) * 100, 1) : 0;
 
         $stats = [
             'total_all'               => $totalAll,
@@ -53,13 +75,17 @@ class JobApplicationController extends Controller
             'total_ditolak'           => $totalDitolak,
             'total_wawancara_ditolak' => $totalWawancaraDitolak,
             'total_ever_interviewed'  => $totalEverInterviewed,
+            'total_today'             => $totalToday,
+            'total_this_week'         => $totalThisWeek,
+            'total_this_month'        => $totalThisMonth,
+            'total_decided'           => $totalDecided,
             'percent_interview'       => $percentInterview,
             'percent_accepted'        => $percentAccepted,
             'percent_ever_interviewed'=> $percentEverInterviewed,
             'winrate'                 => $winrate,
         ];
 
-        // Retrieve unique positions and locations for filtering options
+        // Retrieve unique positions, locations, and platforms for filtering options
         $uniqueLocations = JobApplication::where('user_id', $userId)
             ->whereNotNull('location')
             ->distinct()
@@ -72,6 +98,12 @@ class JobApplicationController extends Controller
             ->pluck('position_name')
             ->values();
 
+        $uniquePlatforms = JobApplication::where('user_id', $userId)
+            ->whereNotNull('platform')
+            ->distinct()
+            ->pluck('platform')
+            ->values();
+
         // Build filtered query
         $query = JobApplication::where('user_id', $userId);
 
@@ -80,7 +112,8 @@ class JobApplicationController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('company_name', 'like', "%{$search}%")
                   ->orWhere('position_name', 'like', "%{$search}%")
-                  ->orWhere('location', 'like', "%{$search}%");
+                  ->orWhere('location', 'like', "%{$search}%")
+                  ->orWhere('platform', 'like', "%{$search}%");
             });
         }
 
@@ -100,6 +133,21 @@ class JobApplicationController extends Controller
             $query->where('work_type', $request->input('work_type'));
         }
 
+        if ($request->filled('platform')) {
+            $query->where('platform', $request->input('platform'));
+        }
+
+        if ($request->filled('date_filter')) {
+            $dateFilter = $request->input('date_filter');
+            if ($dateFilter === 'hari_ini') {
+                $query->whereDate('applied_at', Carbon::today());
+            } elseif ($dateFilter === 'minggu_ini') {
+                $query->whereBetween('applied_at', [$startOfWeek, $endOfWeek]);
+            } elseif ($dateFilter === 'bulan_ini') {
+                $query->whereBetween('applied_at', [$startOfMonth, $endOfMonth]);
+            }
+        }
+
         $sort = $request->input('sort', 'terbaru');
         if ($sort === 'terlama') {
             $query->orderBy('applied_at', 'asc')->orderBy('id', 'asc');
@@ -114,6 +162,7 @@ class JobApplicationController extends Controller
                 'company_name' => $app->company_name,
                 'location' => $app->location,
                 'work_type' => $app->work_type ?? 'Onsite (WFO)',
+                'platform' => $app->platform ?? 'Email',
                 'status' => $app->status,
                 'ever_interviewed' => (bool) $app->ever_interviewed,
                 'applied_at' => $app->applied_at ? $app->applied_at->format('Y-m-d') : null,
@@ -127,18 +176,22 @@ class JobApplicationController extends Controller
             'stats' => $stats,
             'uniqueLocations' => $uniqueLocations,
             'uniquePositions' => $uniquePositions,
-            'filters' => $request->only(['search', 'status', 'location', 'position', 'work_type', 'sort']),
+            'uniquePlatforms' => $uniquePlatforms,
+            'filters' => $request->only(['search', 'status', 'location', 'position', 'work_type', 'platform', 'date_filter', 'sort']),
             'user' => Auth::user(),
         ]);
     }
 
     public function store(Request $request)
     {
+        $isRemote = $request->input('work_type') === 'Offsite (Remote)';
+
         $validated = $request->validate([
             'position_name' => ['required', 'string', 'max:255'],
             'company_name'  => ['required', 'string', 'max:255'],
-            'location'      => ['required', 'string', 'max:255'],
+            'location'      => [$isRemote ? 'nullable' : 'required', 'string', 'max:255'],
             'work_type'     => ['required', 'string', 'in:Onsite (WFO),Offsite (Remote)'],
+            'platform'      => ['nullable', 'string', 'max:255'],
             'status'        => ['required', 'string', 'in:Dikirim,Wawancara,Diterima,Ditolak,(Wawancara) Ditolak'],
             'applied_at'    => ['nullable', 'date'],
         ], [
@@ -153,14 +206,21 @@ class JobApplicationController extends Controller
             ? Carbon::parse($validated['applied_at']) 
             : Carbon::now();
 
+        $location = $isRemote ? ($validated['location'] ?? 'Remote') : $validated['location'];
+        if (empty($location)) {
+            $location = $isRemote ? 'Remote' : '-';
+        }
+
+        $platform = !empty($validated['platform']) ? $validated['platform'] : 'Email';
         $isInterview = in_array($validated['status'], ['Wawancara', 'Diterima', '(Wawancara) Ditolak']);
 
         JobApplication::create([
             'user_id'       => Auth::id(),
             'position_name' => $validated['position_name'],
             'company_name'  => $validated['company_name'],
-            'location'      => $validated['location'],
+            'location'      => $location,
             'work_type'     => $validated['work_type'],
+            'platform'      => $platform,
             'status'        => $validated['status'],
             'applied_at'    => $appliedAt,
             'ever_interviewed' => $isInterview,
@@ -181,11 +241,14 @@ class JobApplicationController extends Controller
             return redirect()->back()->with('error', 'Lamaran yang sudah lebih dari 30 hari tidak dapat di-edit kembali.');
         }
 
+        $isRemote = $request->input('work_type') === 'Offsite (Remote)';
+
         $validated = $request->validate([
             'position_name' => ['required', 'string', 'max:255'],
             'company_name'  => ['required', 'string', 'max:255'],
-            'location'      => ['required', 'string', 'max:255'],
+            'location'      => [$isRemote ? 'nullable' : 'required', 'string', 'max:255'],
             'work_type'     => ['required', 'string', 'in:Onsite (WFO),Offsite (Remote)'],
+            'platform'      => ['nullable', 'string', 'max:255'],
             'status'        => ['required', 'string', 'in:Dikirim,Wawancara,Diterima,Ditolak,(Wawancara) Ditolak'],
             'applied_at'    => ['nullable', 'date'],
         ]);
@@ -194,11 +257,19 @@ class JobApplicationController extends Controller
             ? Carbon::parse($validated['applied_at']) 
             : $jobApplication->applied_at;
 
+        $location = $isRemote ? ($validated['location'] ?? 'Remote') : $validated['location'];
+        if (empty($location)) {
+            $location = $isRemote ? 'Remote' : '-';
+        }
+
+        $platform = !empty($validated['platform']) ? $validated['platform'] : 'Email';
+
         $updateData = [
             'position_name' => $validated['position_name'],
             'company_name'  => $validated['company_name'],
-            'location'      => $validated['location'],
+            'location'      => $location,
             'work_type'     => $validated['work_type'],
+            'platform'      => $platform,
             'status'        => $validated['status'],
             'applied_at'    => $appliedAt,
         ];
@@ -244,5 +315,22 @@ class JobApplicationController extends Controller
         $jobApplication->delete();
 
         return redirect()->back()->with('success', 'Data lamaran kerja berhasil dihapus!');
+    }
+
+    public function downloadPdf()
+    {
+        $userId = Auth::id();
+        $applications = JobApplication::where('user_id', $userId)
+            ->orderBy('applied_at', 'desc')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $user = Auth::user();
+        $generatedAt = Carbon::now('Asia/Jakarta')->translatedFormat('d F Y H:i') . ' WIB';
+
+        $pdf = Pdf::loadView('reports.job_applications_pdf', compact('applications', 'user', 'generatedAt'))
+            ->setPaper('a4', 'landscape');
+
+        return $pdf->download('Laporan_Lamaran_Kerja_Trapda_' . date('Ymd_His') . '.pdf');
     }
 }

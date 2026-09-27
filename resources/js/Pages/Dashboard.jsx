@@ -12,7 +12,7 @@ import StatusInfo from '../Components/StatusInfo';
 import { BarChart3, Table, Info } from 'lucide-react';
 import { translations } from '../Utils/translations';
 
-export default function Dashboard({ applications, stats, uniqueLocations, uniquePositions, filters, user }) {
+export default function Dashboard({ applications, stats, uniqueLocations = [], uniquePositions = [], uniquePlatforms = [], filters, user }) {
     const { flash } = usePage().props;
 
     // Language state ('id' | 'en')
@@ -45,6 +45,8 @@ export default function Dashboard({ applications, stats, uniqueLocations, unique
         location: filters?.location || '',
         position: filters?.position || '',
         work_type: filters?.work_type || '',
+        platform: filters?.platform || '',
+        date_filter: filters?.date_filter || '',
         sort: filters?.sort || 'terbaru',
     });
 
@@ -99,6 +101,8 @@ export default function Dashboard({ applications, stats, uniqueLocations, unique
             location: '',
             position: '',
             work_type: '',
+            platform: '',
+            date_filter: '',
             sort: 'terbaru',
         };
         setLocalFilters(resetFilters);
@@ -108,8 +112,6 @@ export default function Dashboard({ applications, stats, uniqueLocations, unique
             replace: true,
         });
     };
-
-
 
     // Confirm Delete Application
     const handleConfirmDelete = () => {
@@ -195,6 +197,8 @@ export default function Dashboard({ applications, stats, uniqueLocations, unique
                                 filters={localFilters}
                                 uniqueLocations={uniqueLocations}
                                 uniquePositions={uniquePositions}
+                                uniquePlatforms={uniquePlatforms}
+                                stats={stats}
                                 onFilterChange={handleFilterChange}
                                 onReset={handleResetFilters}
                                 lang={lang}
@@ -206,6 +210,7 @@ export default function Dashboard({ applications, stats, uniqueLocations, unique
                                     applications={applications}
                                     onEdit={(item) => setEditingApp(item)}
                                     onDelete={(item) => setDeletingApp(item)}
+                                    filters={localFilters}
                                     lang={lang}
                                 />
                             ) : (
@@ -277,4 +282,3 @@ export default function Dashboard({ applications, stats, uniqueLocations, unique
         </div>
     );
 }
-

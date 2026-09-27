@@ -1,19 +1,51 @@
 import React from 'react';
-import { Send, Users, AlertTriangle, XCircle, CheckCircle2, Trophy, TrendingUp, Layers } from 'lucide-react';
+import { Send, Users, AlertTriangle, XCircle, CheckCircle2, Trophy, TrendingUp, Layers, Calendar, CalendarDays, CalendarRange, Clock } from 'lucide-react';
 import { translations, translateData } from '../Utils/translations';
-
-// ─── Palet warna — sama persis dengan label status ─────────────────────────
-// Total All            → #FFFFFF
-// Dikirim              → #007FD3
-// Wawancara            → #DAA000
-// (Wawancara) Ditolak  → #700000
-// Ditolak              → #D70000
-// Diterima             → #4CBE00
-// ──────────────────────────────────────────────────────────────────────────
 
 export default function StatsCards({ stats, lang = 'id' }) {
     const t = translations[lang] || translations.id;
 
+    // Time-based Cards (Apply Hari Ini, Apply Minggu Ini, Apply Bulan Ini)
+    const timeCards = [
+        {
+            title:       t.cardApplyTodayTitle,
+            value:       stats?.total_today ?? 0,
+            suffix:      'HARI INI',
+            icon:        Clock,
+            subtitle:    t.cardApplyTodaySub,
+            mainColor:   '#0284C7', // Cyan Blue
+            borderColor: '#0369A1',
+            tintColor:   '#E0F2FE',
+            tintText:    '#0369A1',
+            textColor:   '#ffffff',
+        },
+        {
+            title:       t.cardApplyWeekTitle,
+            value:       stats?.total_this_week ?? 0,
+            suffix:      'MINGGU INI',
+            icon:        CalendarDays,
+            subtitle:    t.cardApplyWeekSub,
+            mainColor:   '#0D9488', // Teal
+            borderColor: '#0F766E',
+            tintColor:   '#CCFBF1',
+            tintText:    '#0F766E',
+            textColor:   '#ffffff',
+        },
+        {
+            title:       t.cardApplyMonthTitle,
+            value:       stats?.total_this_month ?? 0,
+            suffix:      'BULAN INI',
+            icon:        CalendarRange,
+            subtitle:    t.cardApplyMonthSub,
+            mainColor:   '#4F46E5', // Indigo
+            borderColor: '#4338CA',
+            tintColor:   '#E0E7FF',
+            tintText:    '#4338CA',
+            textColor:   '#ffffff',
+        },
+    ];
+
+    // Status Cards
     const cards = [
         {
             title:       t.cardTotalAllTitle,
@@ -90,70 +122,137 @@ export default function StatsCards({ stats, lang = 'id' }) {
 
     const winrate = stats?.winrate ?? 0;
     const totalAccepted = stats?.total_accepted ?? 0;
-    const totalAll = stats?.total_all ?? 0;
+    const totalDecided = stats?.total_decided ?? (totalAccepted + (stats?.total_rejected ?? 0));
 
     return (
         <div className="space-y-6 mb-8">
-            {/* Grid Status Cards (6 Cards = 3 Kolom 2 Baris) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                {cards.map((card, idx) => {
-                    const IconComponent = card.icon;
-                    return (
-                        <div
-                            key={idx}
-                            className="relative rounded-3xl p-5 border-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
-                            style={{
-                                backgroundColor: card.mainColor,
-                                borderColor:     card.borderColor,
-                                color:           card.textColor,
-                            }}
-                        >
-                            {/* Top row: badge + icon */}
-                            <div className="flex items-center justify-between">
-                                <span
-                                    className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full border"
-                                    style={{
-                                        backgroundColor: card.tintColor,
-                                        borderColor:     card.borderColor,
-                                        color:           card.tintText,
-                                    }}
-                                >
-                                    {card.suffix}
-                                </span>
-                                <div
-                                    className="p-2.5 rounded-2xl border-2"
-                                    style={{
-                                        backgroundColor: card.tintColor,
-                                        borderColor:     card.borderColor,
-                                        color:           card.tintText,
-                                    }}
-                                >
-                                    <IconComponent className="w-5 h-5" />
-                                </div>
-                            </div>
-
-                            {/* Content */}
-                            <div className="mt-4">
-                                <h4 className="text-xs font-extrabold uppercase tracking-wider opacity-90 leading-tight">
-                                    {card.title}
-                                </h4>
-                                <div className="flex items-baseline space-x-2 mt-1">
-                                    <span className="text-4xl font-black tracking-tight">
-                                        {card.value}
+            {/* BARIS 1: Card Berdasarkan Waktu Apply (Apply Hari Ini, Apply Minggu Ini, Apply Bulan Ini) */}
+            <div>
+                <h3 className="text-sm font-black text-[#005BAB] uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-[#005BAB]" />
+                    <span>Statistik Waktu Apply</span>
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
+                    {timeCards.map((card, idx) => {
+                        const IconComponent = card.icon;
+                        return (
+                            <div
+                                key={idx}
+                                className="relative rounded-3xl p-5 border-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
+                                style={{
+                                    backgroundColor: card.mainColor,
+                                    borderColor:     card.borderColor,
+                                    color:           card.textColor,
+                                }}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span
+                                        className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full border"
+                                        style={{
+                                            backgroundColor: card.tintColor,
+                                            borderColor:     card.borderColor,
+                                            color:           card.tintText,
+                                        }}
+                                    >
+                                        {card.suffix}
                                     </span>
+                                    <div
+                                        className="p-2.5 rounded-2xl border-2"
+                                        style={{
+                                            backgroundColor: card.tintColor,
+                                            borderColor:     card.borderColor,
+                                            color:           card.tintText,
+                                        }}
+                                    >
+                                        <IconComponent className="w-5 h-5" />
+                                    </div>
                                 </div>
-                                {card.subtitle && (
-                                    <p className="mt-2 text-xs font-bold opacity-80">
-                                        {card.subtitle}
-                                    </p>
-                                )}
+
+                                <div className="mt-4">
+                                    <h4 className="text-xs font-extrabold uppercase tracking-wider opacity-90 leading-tight">
+                                        {card.title}
+                                    </h4>
+                                    <div className="flex items-baseline space-x-2 mt-1">
+                                        <span className="text-4xl font-black tracking-tight">
+                                            {card.value}
+                                        </span>
+                                    </div>
+                                    {card.subtitle && (
+                                        <p className="mt-2 text-xs font-bold opacity-80">
+                                            {card.subtitle}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
 
-            {/* BARIS BARU: Card WinRate Keberhasilan Diterima */}
+            {/* BARIS 2: Grid Status Cards (6 Cards = 3 Kolom 2 Baris) */}
+            <div>
+                <h3 className="text-sm font-black text-[#005BAB] uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-[#005BAB]" />
+                    <span>Statistik Status Lamaran</span>
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                    {cards.map((card, idx) => {
+                        const IconComponent = card.icon;
+                        return (
+                            <div
+                                key={idx}
+                                className="relative rounded-3xl p-5 border-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
+                                style={{
+                                    backgroundColor: card.mainColor,
+                                    borderColor:     card.borderColor,
+                                    color:           card.textColor,
+                                }}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span
+                                        className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full border"
+                                        style={{
+                                            backgroundColor: card.tintColor,
+                                            borderColor:     card.borderColor,
+                                            color:           card.tintText,
+                                        }}
+                                    >
+                                        {card.suffix}
+                                    </span>
+                                    <div
+                                        className="p-2.5 rounded-2xl border-2"
+                                        style={{
+                                            backgroundColor: card.tintColor,
+                                            borderColor:     card.borderColor,
+                                            color:           card.tintText,
+                                        }}
+                                    >
+                                        <IconComponent className="w-5 h-5" />
+                                    </div>
+                                </div>
+
+                                <div className="mt-4">
+                                    <h4 className="text-xs font-extrabold uppercase tracking-wider opacity-90 leading-tight">
+                                        {card.title}
+                                    </h4>
+                                    <div className="flex items-baseline space-x-2 mt-1">
+                                        <span className="text-4xl font-black tracking-tight">
+                                            {card.value}
+                                        </span>
+                                    </div>
+                                    {card.subtitle && (
+                                        <p className="mt-2 text-xs font-bold opacity-80">
+                                            {card.subtitle}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* BARIS 3: Card WinRate Keberhasilan Diterima */}
             <div className="bg-trapda-white border-2 border-[#005BAB] rounded-3xl p-6 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-200 hover:shadow-xl">
                 <div className="flex items-center space-x-4 w-full sm:w-auto">
                     <div className="p-4 bg-[#005BAB] text-[#FFF3DD] rounded-2xl border-2 border-[#005BAB] shadow-md flex-shrink-0">
@@ -183,7 +282,7 @@ export default function StatsCards({ stats, lang = 'id' }) {
                             {t.totalSuccessLabel}
                         </div>
                         <div className="text-sm font-black text-[#005BAB]">
-                            {totalAccepted} / {totalAll} {t.jobCountSuffix}
+                            {totalAccepted} / {totalDecided} {t.jobCountSuffix}
                         </div>
                     </div>
                     <div className="h-10 w-0.5 bg-[#005BAB]/30 hidden sm:block" />
@@ -197,5 +296,3 @@ export default function StatsCards({ stats, lang = 'id' }) {
         </div>
     );
 }
-
-
