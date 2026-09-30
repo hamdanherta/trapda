@@ -3,11 +3,14 @@ import { useForm } from '@inertiajs/react';
 import { X, Briefcase, MapPin, Building, Calendar, CheckCircle, Tag, Send, Users, CheckCircle2, XCircle, AlertTriangle, Building2, Laptop, Globe } from 'lucide-react';
 import { translations, translateData } from '../Utils/translations';
 
-const PRESET_PLATFORMS = ['Email', 'Glints', 'Jobstreet', 'Indeed', 'GForm'];
+const PRESET_PLATFORMS = ['Email', 'LinkedIn', 'Glints', 'Jobstreet', 'Indeed', 'GForm'];
 
-export default function JobModal({ isOpen, onClose, application = null, onSuccess, onError, lang = 'id' }) {
+export default function JobModal({ isOpen, onClose, application = null, onSuccess, onError, lang = 'id', uniquePositions = [], uniqueLocations = [] }) {
     const t = translations[lang] || translations.id;
     const isEdit = Boolean(application);
+
+    const positionOptions = Array.from(new Set(uniquePositions.filter(Boolean)));
+    const locationOptions = Array.from(new Set(uniqueLocations.filter(Boolean)));
 
     const getCurrentLocalDate = () => {
         const now = new Date();
@@ -212,11 +215,18 @@ export default function JobModal({ isOpen, onClose, application = null, onSucces
                                 <input
                                     type="text"
                                     required
+                                    list="position-list-suggestions"
                                     value={data.position_name}
                                     onChange={(e) => setData('position_name', e.target.value)}
                                     placeholder={t.placeholderPosition}
                                     className="w-full pl-10 pr-4 py-2.5 bg-trapda-cream border-2 border-[#005BAB] rounded-xl text-xs sm:text-sm font-bold text-[#005BAB] placeholder-[#005BAB]/40 focus:outline-none focus:ring-2 focus:ring-[#005BAB] transition-all"
+                                    autoComplete="off"
                                 />
+                                <datalist id="position-list-suggestions">
+                                    {positionOptions.map((pos, idx) => (
+                                        <option key={idx} value={pos} />
+                                    ))}
+                                </datalist>
                             </div>
                             {errors.position_name && <p className="mt-1 text-xs font-bold text-red-600">{errors.position_name}</p>}
                         </div>
@@ -284,11 +294,18 @@ export default function JobModal({ isOpen, onClose, application = null, onSucces
                                     <input
                                         type="text"
                                         required={!isOffsiteRemote}
+                                        list="location-list-suggestions"
                                         value={data.location}
                                         onChange={(e) => setData('location', e.target.value)}
                                         placeholder={t.placeholderLocation}
                                         className="w-full pl-10 pr-4 py-2.5 bg-trapda-cream border-2 border-[#005BAB] rounded-xl text-xs sm:text-sm font-bold text-[#005BAB] placeholder-[#005BAB]/40 focus:outline-none focus:ring-2 focus:ring-[#005BAB] transition-all"
+                                        autoComplete="off"
                                     />
+                                    <datalist id="location-list-suggestions">
+                                        {locationOptions.map((loc, idx) => (
+                                            <option key={idx} value={loc} />
+                                        ))}
+                                    </datalist>
                                 </div>
                                 {errors.location && <p className="mt-1 text-xs font-bold text-red-600">{errors.location}</p>}
                             </div>

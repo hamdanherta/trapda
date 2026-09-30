@@ -245,6 +245,8 @@ export default function Dashboard({ applications, stats, uniqueLocations = [], u
                     setEditingApp(null);
                 }}
                 application={editingApp}
+                uniquePositions={uniquePositions}
+                uniqueLocations={uniqueLocations}
                 lang={lang}
                 onSuccess={(msg) => {
                     setNotification({

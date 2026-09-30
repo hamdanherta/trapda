@@ -73,7 +73,7 @@ export default function FilterBar({ filters, uniqueLocations = [], uniquePositio
         { label: `${t.applyThisMonth} (${stats?.total_this_month ?? 0})`, value: 'bulan_ini' },
     ];
 
-    const defaultPlatforms = ['Email', 'Glints', 'Jobstreet', 'Indeed', 'GForm'];
+    const defaultPlatforms = ['Email', 'LinkedIn', 'Glints', 'Jobstreet', 'Indeed', 'GForm'];
     const mergedPlatforms = Array.from(new Set([...defaultPlatforms, ...uniquePlatforms])).filter(Boolean);
 
     const platformOptions = [
